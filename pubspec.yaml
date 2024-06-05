@@ -1,0 +1,23 @@
+name: smotion_log
+description: yet another logger
+version: 0.0.1
+
+environment:
+  sdk: ">=2.15.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  archive: ^3.4.10
+  cross_file: ^0.3.4+1
+  logger: ^2.2.0
+  path_provider: ^2.1.2
+  share_plus: ^8.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+
