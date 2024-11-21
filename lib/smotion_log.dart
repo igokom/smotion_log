@@ -1,9 +1,11 @@
 library smotion_log;
 
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -57,7 +59,8 @@ class SmotionLog {
       },
     );
     _writeHeaderToFile(
-        'Session starts at: ${DateTime.now().toIso8601String()}');
+      'Session starts at: ${DateTime.now().toIso8601String()}',
+    );
 
     await _logger.close();
     _logger = Logger(
@@ -65,8 +68,8 @@ class SmotionLog {
       filter: ProductionFilter(),
       output: MultiOutput(
         [
-          ConsoleOutput(),
-          if (Platform.isIOS) _FileLogOutput(_file),
+          _CustomConsoleOutput(),
+          _FileLogOutput(_file),
         ],
       ),
     );
@@ -132,5 +135,12 @@ class _FileLogOutput extends LogOutput {
     for (final String line in event.lines) {
       _file?.writeln("$line\n");
     }
+  }
+}
+
+class _CustomConsoleOutput extends ConsoleOutput {
+  @override
+  void output(OutputEvent event) {
+    kDebugMode ? event.lines.forEach(developer.log) : super.output(event);
   }
 }
