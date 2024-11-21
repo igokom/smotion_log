@@ -1,6 +1,6 @@
 name: smotion_log
 description: yet another logger
-version: 0.0.1
+version: 0.0.2
 
 environment:
   sdk: ">=2.15.0"
