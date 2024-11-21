@@ -14,7 +14,6 @@ class SmotionLog {
   static const _logsDirectoryName = "app_logs";
   static const _fileDefaultName = "session";
   static final SmotionLog _instance = SmotionLog._();
-
   static SmotionLog get instance => _instance;
 
   static Logger _createLogger({
