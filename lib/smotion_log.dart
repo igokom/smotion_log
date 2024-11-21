@@ -109,7 +109,7 @@ class SmotionLog {
   Future<String> _getLogsDirectoryPath([String? dirName]) async {
     final Directory appDocumentsDirectory =
         await getApplicationDocumentsDirectory();
-    return '${appDocumentsDirectory.path}/${dirName??_logsDirectoryName}';
+    return '${appDocumentsDirectory.path}/${dirName ?? _logsDirectoryName}';
   }
 
   Future<List<File>?> _getAllLogFiles([String? dirPath]) async {
@@ -138,15 +138,20 @@ class _FileLogOutput extends LogOutput {
 
   @override
   void output(OutputEvent event) {
-    for (final String line in event.lines) {
-      _file?.writeln("$line\n");
-    }
+    void writeToFile(String l) => _file?.writeln("[${DateTime.now()}] $l");
+    event.lines.forEach(writeToFile);
   }
 }
 
 class _CustomConsoleOutput extends ConsoleOutput {
   @override
   void output(OutputEvent event) {
-    kDebugMode ? event.lines.forEach(developer.log) : super.output(event);
+    if (kDebugMode) {
+      for (final String line in event.lines) {
+        line.length > 800 ? developer.log(line) : debugPrint(line);
+      }
+    } else {
+      super.output(event);
+    }
   }
 }
