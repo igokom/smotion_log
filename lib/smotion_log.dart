@@ -11,32 +11,40 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SmotionLog {
-  static final defaultPrinter = PrettyPrinter(
-    methodCount: 0,
-    errorMethodCount: 15,
-    excludeBox: {
-      Level.trace: true,
-      Level.debug: true,
-    },
-  );
-  static const _logsDirectoryName = "logs";
-  static const _fileDefaultName = "log";
-
+  static const _logsDirectoryName = "app_logs";
+  static const _fileDefaultName = "session";
   static final SmotionLog _instance = SmotionLog._();
 
   static SmotionLog get instance => _instance;
 
+  static Logger _createLogger({
+    LogPrinter? printer,
+    LogOutput? output,
+    LogFilter? filter,
+    Level? level,
+  }) =>
+      Logger(
+        printer: printer ??
+            PrettyPrinter(
+              methodCount: 0,
+              errorMethodCount: 15,
+              excludeBox: {
+                Level.trace: true,
+                Level.debug: true,
+              },
+            ),
+        output: output ?? _CustomConsoleOutput(),
+        filter: filter ?? ProductionFilter(),
+        level: level ?? Level.trace,
+      );
+
   Logger _logger;
-  LogPrinter _printer;
   IOSink? _file;
 
-  SmotionLog._()
-      : _logger = Logger(printer: defaultPrinter),
-        _printer = defaultPrinter;
+  SmotionLog._() : _logger = _createLogger();
 
-  set setPrinter(LogPrinter p) {
-    _printer = p;
-    _logger.close().then((_) => _logger = Logger(printer: _printer));
+  void setPrinter(LogPrinter p) async {
+    await _logger.close().then((_) => _logger = _createLogger(printer: p));
   }
 
   void debug(String message, {StackTrace? st}) =>
@@ -48,6 +56,8 @@ class SmotionLog {
   void info(String message) => _logger.i(message);
 
   void warning(String message) => _logger.w(message);
+
+  void trace(String message) => _logger.t(message);
 
   /// Call to include logging to file
   Future<void> initFileLog([String fileName = _fileDefaultName]) async {
@@ -63,25 +73,19 @@ class SmotionLog {
     );
 
     await _logger.close();
-    _logger = Logger(
-      printer: _printer,
-      filter: ProductionFilter(),
-      output: MultiOutput(
-        [
-          _CustomConsoleOutput(),
-          _FileLogOutput(_file),
-        ],
-      ),
+    _logger = _createLogger(
+      output: MultiOutput([_CustomConsoleOutput(), _FileLogOutput(_file)]),
     );
   }
 
   Future<void> closeFileLog() async {
     _writeHeaderToFile(
-        'Session closed at: ${DateTime.now().toIso8601String()}');
+      'Session closed at: ${DateTime.now().toIso8601String()}',
+    );
     await _file?.close();
   }
 
-  Future<void> exportLog([String? zipFileName]) async {
+  Future<void> exportLog([String? zipFileName, String? shareText]) async {
     final String logsDir = await _getLogsDirectoryPath();
     final List<File>? logFiles = await _getAllLogFiles(logsDir);
     if (logFiles == null || logFiles.isEmpty) {
@@ -89,21 +93,24 @@ class SmotionLog {
       return;
     }
     final encoder = ZipFileEncoder();
-    final String logsArchivePath = '$logsDir/${zipFileName ?? 'all_logs'}.zip';
+    final String logsArchivePath =
+        '$logsDir/${zipFileName ?? _logsDirectoryName}.zip';
     encoder.create(logsArchivePath);
     await Future.forEach(logFiles, encoder.addFile);
     encoder.close();
-    await Share.shareXFiles([XFile(logsArchivePath)], text: "Skaiscan logs")
-        .then((r) {
+    await Share.shareXFiles(
+      [XFile(logsArchivePath)],
+      text: shareText ?? _logsDirectoryName,
+    ).then((r) {
       info("Share logs result: ${r.status.name}");
       return File(logsArchivePath).delete();
     });
   }
 
-  Future<String> _getLogsDirectoryPath() async {
+  Future<String> _getLogsDirectoryPath([String? dirName]) async {
     final Directory appDocumentsDirectory =
         await getApplicationDocumentsDirectory();
-    return '${appDocumentsDirectory.path}/$_logsDirectoryName';
+    return '${appDocumentsDirectory.path}/${dirName ?? _logsDirectoryName}';
   }
 
   Future<List<File>?> _getAllLogFiles([String? dirPath]) async {
@@ -132,15 +139,20 @@ class _FileLogOutput extends LogOutput {
 
   @override
   void output(OutputEvent event) {
-    for (final String line in event.lines) {
-      _file?.writeln("$line\n");
-    }
+    void writeToFile(String l) => _file?.writeln("[${DateTime.now()}] $l");
+    event.lines.forEach(writeToFile);
   }
 }
 
 class _CustomConsoleOutput extends ConsoleOutput {
   @override
   void output(OutputEvent event) {
-    kDebugMode ? event.lines.forEach(developer.log) : super.output(event);
+    if (kDebugMode) {
+      for (final String line in event.lines) {
+        line.length > 800 ? developer.log(line) : debugPrint(line);
+      }
+    } else {
+      super.output(event);
+    }
   }
 }
